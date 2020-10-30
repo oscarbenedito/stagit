@@ -3,6 +3,9 @@
 # change the config options below and call this script in your post-receive
 # hook or symlink it.
 #
+# NOTE, things to do manually (once) before running this script:
+# - modify the categories in the for loop with your own.
+#
 # usage: $0 [name]
 #
 # if name is not set the basename of the current directory is used,
@@ -62,11 +65,31 @@ stagit -c "${cachefile}" "${reposdir}/${r}"
     || ln -sf log.html index.html
 ln -sf "${dir}" .git
 
-# make index
-repos=""
-for dir in "$reposdir/"*.git/; do
-    [ -f "$dir/git-daemon-export-ok" ] && repos="$repos $dir"
+# generate index arguments
+args=""
+for cat in "Projects" "Miscellanea"; do
+    args="$args -c $cat"
+    for dir in "$reposdir/"*.git/; do
+        dir="${dir%/}"
+        [ ! -f "$dir/git-daemon-export-ok" ] && continue
+        if [ -f "$dir/category" ]; then
+            [ "$(cat "$dir/category")" = "$cat" ] && args="$args $dir"
+        else
+            stagit_uncat="1"
+        fi
+    done
 done
-echo "$repos" | xargs stagit-index > "${destdir}/index.html"
+
+if [ -n "$stagit_uncat" ]; then
+    args="$args -c Uncategorized"
+    for dir in "$reposdir/"*.git/; do
+        dir="${dir%/}"
+        [ -f "$dir/git-daemon-export-ok" ] && [ ! -f "$dir/category" ] && \
+            args="$args $dir"
+    done
+fi
+
+# make index
+echo "$args" | xargs stagit-index > "${destdir}/index.html"
 
 echo "done"

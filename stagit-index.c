@@ -15,6 +15,7 @@ static const char *relpath = "";
 static char description[255] = "Oscar Benedito's Git repositories";
 static char *name = "";
 static char owner[255];
+static char category[255];
 
 void
 joinpath(char *buf, size_t bufsiz, const char *path, const char *path2)
@@ -119,7 +120,7 @@ writelog(FILE *fp)
 		if (!strcmp(p, ".git"))
 			*p = '\0';
 
-	fputs("<tr><td><a href=\"", fp);
+	fputs("<tr class=\"repo\"><td><a href=\"", fp);
 	xmlencode(fp, stripped_name, strlen(stripped_name));
 	fputs("/\">", fp);
 	xmlencode(fp, stripped_name, strlen(stripped_name));
@@ -161,6 +162,17 @@ main(int argc, char *argv[])
 	writeheader(stdout);
 
 	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-c")) {
+			i++;
+			if (i == argc)
+				err(1, "missing argument");
+			repodir = argv[i];
+			fputs("<tr class=\"cat\"><td>", stdout);
+			xmlencode(stdout, repodir, strlen(repodir));
+			fputs("</td><td></td><td></td></tr>\n", stdout);
+			continue;
+		}
+
 		repodir = argv[i];
 		if (!realpath(repodir, repodirabs))
 			err(1, "realpath");
