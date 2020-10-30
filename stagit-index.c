@@ -128,7 +128,7 @@ writelog(FILE *fp)
 	fputs("</td><td>", fp);
 	if (author)
 		printtimeshort(fp, &(author->when));
-	fputs("</td></tr>", fp);
+	fputs("</td></tr>\n", fp);
 
 	git_commit_free(commit);
 err:
@@ -144,7 +144,7 @@ main(int argc, char *argv[])
 	FILE *fp;
 	char path[PATH_MAX], repodirabs[PATH_MAX + 1];
 	const char *repodir;
-	int i, ret = 0;
+	int i, ret = 0, tmp;
 
 	if (argc < 2) {
 		fprintf(stderr, "%s [repodir...]\n", argv[0]);
@@ -188,6 +188,9 @@ main(int argc, char *argv[])
 		if (fp) {
 			if (!fgets(description, sizeof(description), fp))
 				description[0] = '\0';
+			tmp = strlen(description);
+			if (tmp > 0 && description[tmp-1] == '\n')
+				description[tmp-1] = '\0';
 			fclose(fp);
 		}
 
