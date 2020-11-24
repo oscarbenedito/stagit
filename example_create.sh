@@ -40,8 +40,8 @@ for dir in "$reposdir/"*.git/; do
     [ ! -f "$dir/category" ] && [ -z "$stagit_uncat" ] && stagit_uncat="1"
 
     # strip .git suffix
-    r=$(basename "$dir")
-    d=$(basename "$dir" ".git")
+    r="$(basename "$dir")"
+    d="$(basename "$dir" ".git")"
     printf "%s... " "$d"
 
     mkdir -p "$webdir/$d"
@@ -50,9 +50,9 @@ for dir in "$reposdir/"*.git/; do
 
     # symlinks
     [ -f "about.html" ] \
-        && ln -sf about.html index.html \
-        || ln -sf log.html index.html
-    ln -sf "$reposdir/$r" ".git"
+        && ln -sf "about.html" "index.html" \
+        || ln -sf "log.html" "index.html"
+    ln -sfT "$reposdir/$r" ".git"
 
     echo "done"
 done

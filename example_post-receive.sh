@@ -17,7 +17,7 @@ export LC_CTYPE="en_US.UTF-8"
 
 name="$1"
 if test "${name}" = ""; then
-    name=$(basename "$(pwd)")
+    name="$(basename "$(pwd)")"
 fi
 
 # paths must be absolute
@@ -40,16 +40,16 @@ while read -r old new ref; do
     test "${old}" = "0000000000000000000000000000000000000000" && continue
     test "${new}" = "0000000000000000000000000000000000000000" && continue
 
-    hasrevs=$(git rev-list "${old}" "^${new}" | sed 1q)
+    hasrevs="$(git rev-list "${old}" "^${new}" | sed 1q)"
     if test -n "${hasrevs}"; then
-        force=1
+        force="1"
         break
     fi
 done
 
 # strip .git suffix
-r=$(basename "${name}")
-d=$(basename "${name}" ".git")
+r="$(basename "${name}")"
+d="$(basename "${name}" ".git")"
 printf "[%s] stagit HTML pages... " "${d}"
 
 # remove folder if forced update
@@ -61,9 +61,9 @@ cd "${destdir}/${d}" || exit 1
 # make pages
 stagit -c "${cachefile}" "${reposdir}/${r}"
 [ -f "about.html" ] \
-    && ln -sf about.html index.html \
-    || ln -sf log.html index.html
-ln -sf "${dir}" .git
+    && ln -sf "about.html" "index.html" \
+    || ln -sf "log.html" "index.html"
+ln -sfT "${dir}" ".git"
 
 # generate index arguments
 args=""
