@@ -59,7 +59,7 @@ mkdir -p "${destdir}/${d}"
 cd "${destdir}/${d}" || exit 1
 
 # make pages
-stagit -c "${cachefile}" "${reposdir}/${r}"
+stagit -c "${cachefile}" -u "https://git.oscarbenedito.com/$d/" "${reposdir}/${r}"
 [ -f "about.html" ] \
     && ln -sf "about.html" "index.html" \
     || ln -sf "log.html" "index.html"

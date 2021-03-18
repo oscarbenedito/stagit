@@ -46,7 +46,7 @@ for dir in "$reposdir/"*.git/; do
 
     mkdir -p "$webdir/$d"
     cd "$webdir/$d" || continue
-    stagit -c ".stagit-build-cache" "$reposdir/$r"
+    stagit -c ".stagit-build-cache" -u "https://git.oscarbenedito.com/$d/" "$reposdir/$r"
 
     # symlinks
     [ -f "about.html" ] \

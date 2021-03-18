@@ -17,6 +17,8 @@
 
 #include "compat.h"
 
+#define LEN(s)    (sizeof(s)/sizeof(*s))
+
 struct deltainfo {
 	git_patch *patch;
 
@@ -57,6 +59,7 @@ struct referenceinfo {
 
 static git_repository *repo;
 
+static const char *baseurl = ""; /* base URL to make absolute RSS/Atom URI */
 static const char *relpath = "";
 static const char *repodir;
 
@@ -254,8 +257,7 @@ err:
 int
 refs_cmp(const void *v1, const void *v2)
 {
-	struct referenceinfo *r1 = (struct referenceinfo *)v1;
-	struct referenceinfo *r2 = (struct referenceinfo *)v2;
+	const struct referenceinfo *r1 = v1, *r2 = v2;
 	time_t t1, t2;
 	int r;
 
@@ -350,12 +352,12 @@ err:
 }
 
 FILE *
-efopen(const char *name, const char *flags)
+efopen(const char *filename, const char *flags)
 {
 	FILE *fp;
 
-	if (!(fp = fopen(name, flags)))
-		err(1, "fopen: '%s'", name);
+	if (!(fp = fopen(filename, flags)))
+		err(1, "fopen: '%s'", filename);
 
 	return fp;
 }
@@ -373,7 +375,7 @@ xmlencode(FILE *fp, const char *s, size_t len)
 		case '\'': fputs("&#39;",  fp); break;
 		case '&':  fputs("&amp;",  fp); break;
 		case '"':  fputs("&quot;", fp); break;
-		default:   fputc(*s, fp);
+		default:   putc(*s, fp);
 		}
 	}
 }
@@ -465,7 +467,7 @@ writeheader(FILE *fp, const char *title)
 	fputs("<!DOCTYPE html>\n"
 		"<html>\n<head>\n"
 		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
-		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
 		"<title>", fp);
 	xmlencode(fp, title, strlen(title));
 	if (title[0] && strippedname[0])
@@ -520,18 +522,18 @@ writefooter(FILE *fp)
 	fputs("</div>\n</body>\n</html>\n", fp);
 }
 
-int
+size_t
 writeblobhtml(FILE *fp, const git_blob *blob)
 {
-	size_t n = 0, i, prev;
-	const char *nfmt = "<a href=\"#l%d\" class=\"line\" id=\"l%d\">%7d</a> ";
+	size_t n = 0, i, len, prev;
+	const char *nfmt = "<a href=\"#l%zu\" class=\"line\" id=\"l%zu\">%7zu</a> ";
 	const char *s = git_blob_rawcontent(blob);
-	git_off_t len = git_blob_rawsize(blob);
 
+	len = git_blob_rawsize(blob);
 	fputs("<pre id=\"blob\">\n", fp);
 
 	if (len > 0) {
-		for (i = 0, prev = 0; i < (size_t)len; i++) {
+		for (i = 0, prev = 0; i < len; i++) {
 			if (s[i] != '\n')
 				continue;
 			n++;
@@ -571,12 +573,12 @@ printcommit(FILE *fp, struct commitinfo *ci)
 		xmlencode(fp, ci->author->email, strlen(ci->author->email));
 		fputs("</a>&gt;\n<b>Date:</b>   ", fp);
 		printtime(fp, &(ci->author->when));
-		fputc('\n', fp);
+		putc('\n', fp);
 	}
 	if (ci->msg) {
-		fputc('\n', fp);
+		putc('\n', fp);
 		xmlencode(fp, ci->msg, strlen(ci->msg));
-		fputc('\n', fp);
+		putc('\n', fp);
 	}
 }
 
@@ -695,7 +697,7 @@ printshowfile(FILE *fp, struct commitinfo *ci)
 					fprintf(fp, "<a href=\"#h%zu-%zu-%zu\" id=\"h%zu-%zu-%zu\" class=\"d\">-",
 						i, j, k, i, j, k);
 				else
-					fputc(' ', fp);
+					putc(' ', fp);
 				xmlencode(fp, line->content, line->content_len);
 				if (line->old_lineno == -1 || line->new_lineno == -1)
 					fputs("</a>", fp);
@@ -826,8 +828,8 @@ printcommitatom(FILE *fp, struct commitinfo *ci, const char *tag)
 		xmlencode(fp, ci->summary, strlen(ci->summary));
 		fputs("</title>\n", fp);
 	}
-	fprintf(fp, "<link rel=\"alternate\" type=\"text/html\" href=\"commit/%s.html\" />\n",
-	        ci->oid);
+	fprintf(fp, "<link rel=\"alternate\" type=\"text/html\" href=\"%scommit/%s.html\" />\n",
+	        baseurl, ci->oid);
 
 	if (ci->author) {
 		fputs("<author>\n<name>", fp);
@@ -848,10 +850,10 @@ printcommitatom(FILE *fp, struct commitinfo *ci, const char *tag)
 		xmlencode(fp, ci->author->email, strlen(ci->author->email));
 		fputs("&gt;\nDate:   ", fp);
 		printtime(fp, &(ci->author->when));
-		fputc('\n', fp);
+		putc('\n', fp);
 	}
 	if (ci->msg) {
-		fputc('\n', fp);
+		putc('\n', fp);
 		xmlencode(fp, ci->msg, strlen(ci->msg));
 	}
 	fputs("\n</content>\n</entry>\n", fp);
@@ -909,7 +911,7 @@ writeblobraw(const git_blob *blob, const char *fpath, const char *filename, git_
 {
 	char tmp[PATH_MAX] = "";
 	const char *p;
-	int lc = 0;
+	size_t lc = 0;
 	FILE *fp;
 
 	mkdirfile(fpath);
@@ -927,8 +929,8 @@ writeblobraw(const git_blob *blob, const char *fpath, const char *filename, git_
 	fclose(fp);
 }
 
-int
-writeblob(git_object *obj, const char *fpath, const char *rpath, const char *filename, git_off_t filesize)
+size_t
+writeblob(git_object *obj, const char *fpath, const char *rpath, const char *filename, size_t filesize)
 {
 	char tmp[PATH_MAX] = "";
 	const char *p, *oldrelpath;
@@ -952,7 +954,7 @@ writeblob(git_object *obj, const char *fpath, const char *rpath, const char *fil
 	writeheader(fp, filename);
 	fputs("<p> ", fp);
 	xmlencode(fp, filename, strlen(filename));
-	fprintf(fp, " (%juB)", (uintmax_t)filesize);
+	fprintf(fp, " (%zuB)", filesize);
 	fprintf(fp, " - <a href=\"%s%s\">raw</a></p><hr/>", relpath, rpath);
 
 	if (git_blob_is_binary((git_blob *)obj)) {
@@ -1017,13 +1019,12 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 {
 	const git_tree_entry *entry = NULL;
 	git_object *obj = NULL;
-	git_off_t filesize;
 	FILE *fp_subtree;
 	const char *entryname, *oldrelpath;
-	char filepath[PATH_MAX], rawpath[PATH_MAX], entrypath[PATH_MAX], tmp[PATH_MAX], tmp2[PATH_MAX];
+	char filepath[PATH_MAX], rawpath[PATH_MAX], entrypath[PATH_MAX], tmp[PATH_MAX], tmp2[PATH_MAX], oid[8];
 	char* parent;
-	size_t count, i;
-	int lc, r, rf, ret;
+	size_t count, i, lc, filesize;
+	int r, rf, ret, is_obj_tree;
 
 	if (strlen(path) > 0) {
 		fputs("<h2>Directory: ", fp);
@@ -1074,6 +1075,7 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 		if (!git_tree_entry_to_object(&obj, repo, entry)) {
 			switch (git_object_type(obj)) {
 			case GIT_OBJ_BLOB:
+				is_obj_tree = 0;
 				filesize = git_blob_rawsize((git_blob *)obj);
 				lc = writeblob(obj, filepath, rawpath, entryname, filesize);
 				writeblobraw((git_blob *)obj, rawpath, entryname, filesize);
@@ -1098,7 +1100,8 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 				                     entrypath);
 				writefooter(fp_subtree);
 				relpath = oldrelpath;
-				lc = -1;
+				lc = 0;
+				is_obj_tree = 1;
 				if (ret)
 					return ret;
 				break;
@@ -1118,9 +1121,9 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 			xmlencode(fp, entryname, strlen(entryname));
 			fputs("</a></td><td class=\"num\" align=\"right\">", fp);
 			if (lc > 0)
-				fprintf(fp, "%dL", lc);
-			else if (lc == 0)
-				fprintf(fp, "%juB", (uintmax_t)filesize);
+				fprintf(fp, "%zuL", lc);
+			else if (!is_obj_tree)
+				fprintf(fp, "%zuB", filesize);
 			fputs("</td></tr>\n", fp);
 			git_object_free(obj);
 		} else if (git_tree_entry_type(entry) == GIT_OBJ_COMMIT) {
@@ -1129,11 +1132,9 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 				relpath);
 			xmlencode(fp, entrypath, strlen(entrypath));
 			fputs("</a> @ ", fp);
-			const git_oid* oid = git_tree_entry_id(entry);
-			char oidstr[8];
-			git_oid_tostr(oidstr, sizeof(oidstr), oid);
-			fprintf(fp, "%s</td><td class=\"num\" align=\"right\"></td></tr>\n",
-			        oidstr);
+			git_oid_tostr(oid, sizeof(oid), git_tree_entry_id(entry));
+			xmlencode(fp, oid, strlen(oid));
+			fputs("</td><td class=\"num\" align=\"right\"></td></tr>\n", fp);
 		}
 	}
 
@@ -1218,7 +1219,8 @@ writerefs(FILE *fp)
 void
 usage(char *argv0)
 {
-	fprintf(stderr, "%s [-c cachefile | -l commits] repodir\n", argv0);
+	fprintf(stderr, "%s [-c cachefile | -l commits] "
+	        "[-u baseurl] repodir\n", argv0);
 	exit(1);
 }
 
@@ -1257,6 +1259,10 @@ main(int argc, char *argv[])
 			if (argv[i][0] == '\0' || *p != '\0' ||
 			    nlogcommits <= 0 || errno)
 				usage(argv[0]);
+		} else if (argv[i][1] == 'u') {
+			if (i + 1 >= argc)
+				usage(argv[0]);
+			baseurl = argv[++i];
 		}
 	}
 	if (!repodir)
@@ -1342,7 +1348,7 @@ main(int argc, char *argv[])
 	}
 
 	/* check LICENSE */
-	for (i = 0; i < sizeof(licensefiles) / sizeof(*licensefiles) && !license; i++) {
+	for (i = 0; i < LEN(licensefiles) && !license; i++) {
 		if (!git_revparse_single(&obj, repo, licensefiles[i]) &&
 		    git_object_type(obj) == GIT_OBJ_BLOB)
 			license = licensefiles[i] + strlen("HEAD:");
@@ -1350,7 +1356,7 @@ main(int argc, char *argv[])
 	}
 
 	/* check README */
-	for (i = 0; i < sizeof(readmefiles) / sizeof(*readmefiles) && !readme; i++) {
+	for (i = 0; i < LEN(readmefiles) && !readme; i++) {
 		if (!git_revparse_single(&obj, repo, readmefiles[i]) &&
 		    git_object_type(obj) == GIT_OBJ_BLOB)
 			readme = readmefiles[i] + strlen("HEAD:");
