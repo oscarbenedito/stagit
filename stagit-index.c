@@ -67,7 +67,7 @@ writeheader(FILE *fp)
 	fputs("<!DOCTYPE html>\n"
 		"<html>\n<head>\n"
 		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
-		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
 		"<title>Git Repositories | Oscar Benedito</title>\n", fp);
 	fprintf(fp, "<link rel=\"icon\" type=\"image/png\" href=\"%sfavicon.ico\" />\n", relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
