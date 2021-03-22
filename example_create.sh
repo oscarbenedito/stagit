@@ -59,7 +59,7 @@ done
 
 # generate index arguments
 args=""
-for cat in "Projects" "Miscellanea"; do
+for cat in "Projects" "Personal setup" "Miscellanea"; do
     args="$args -c \"$cat\""
     for dir in "$reposdir/"*.git/; do
         dir="${dir%/}"

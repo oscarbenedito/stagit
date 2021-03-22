@@ -67,8 +67,8 @@ ln -sfT "${dir}" ".git"
 
 # generate index arguments
 args=""
-for cat in "Projects" "Miscellanea"; do
-    args="$args -c $cat"
+for cat in "Projects" "Personal setup" "Miscellanea"; do
+    args="$args -c \"$cat\""
     for dir in "$reposdir/"*.git/; do
         dir="${dir%/}"
         [ ! -f "$dir/git-daemon-export-ok" ] && continue
