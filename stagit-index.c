@@ -68,8 +68,9 @@ writeheader(FILE *fp)
 		"<html>\n<head>\n"
 		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
-		"<title>Git Repositories | Oscar Benedito</title>\n", fp);
-	fprintf(fp, "<link rel=\"icon\" type=\"image/png\" href=\"%sfavicon.ico\" />\n", relpath);
+		"<title>", fp);
+	xmlencode(fp, description, strlen(description));
+	fprintf(fp, "</title>\n<link rel=\"icon\" href=\"%sfavicon.ico\" />\n", relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
 	fputs("</head>\n<body id=\"home\">\n<h1>", fp);
 	xmlencode(fp, description, strlen(description));
@@ -103,7 +104,6 @@ writelog(FILE *fp)
 
 	git_revwalk_new(&w, repo);
 	git_revwalk_push_head(w);
-	git_revwalk_simplify_first_parent(w);
 
 	if (git_revwalk_next(&id, w) ||
 	    git_commit_lookup(&commit, repo, &id)) {

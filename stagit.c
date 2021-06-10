@@ -380,6 +380,26 @@ xmlencode(FILE *fp, const char *s, size_t len)
 	}
 }
 
+/* Escape characters below as HTML 2.0 / XML 1.0, ignore printing '\r', '\n' */
+void
+xmlencodeline(FILE *fp, const char *s, size_t len)
+{
+	size_t i;
+
+	for (i = 0; *s && i < len; s++, i++) {
+		switch(*s) {
+		case '<':  fputs("&lt;",   fp); break;
+		case '>':  fputs("&gt;",   fp); break;
+		case '\'': fputs("&#39;",  fp); break;
+		case '&':  fputs("&amp;",  fp); break;
+		case '"':  fputs("&quot;", fp); break;
+		case '\r': break; /* ignore CR */
+		case '\n': break; /* ignore LF */
+		default:   putc(*s, fp);
+		}
+	}
+}
+
 int
 mkdirp(const char *path)
 {
@@ -698,7 +718,8 @@ printshowfile(FILE *fp, struct commitinfo *ci)
 						i, j, k, i, j, k);
 				else
 					putc(' ', fp);
-				xmlencode(fp, line->content, line->content_len);
+				xmlencodeline(fp, line->content, line->content_len);
+				putc('\n', fp);
 				if (line->old_lineno == -1 || line->new_lineno == -1)
 					fputs("</a>", fp);
 			}
@@ -742,7 +763,6 @@ writelog(FILE *fp, const git_oid *oid)
 
 	git_revwalk_new(&w, repo);
 	git_revwalk_push(w, oid);
-	git_revwalk_simplify_first_parent(w);
 
 	while (!git_revwalk_next(&id, w)) {
 		relpath = "";
@@ -880,7 +900,6 @@ writeatom(FILE *fp, int all)
 	if (all) {
 		git_revwalk_new(&w, repo);
 		git_revwalk_push_head(w);
-		git_revwalk_simplify_first_parent(w);
 		for (i = 0; i < m && !git_revwalk_next(&id, w); i++) {
 			if (!(ci = commitinfo_getbyoid(&id)))
 				break;
