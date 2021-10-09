@@ -70,7 +70,8 @@ writeheader(FILE *fp)
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
 		"<title>", fp);
 	xmlencode(fp, description, strlen(description));
-	fprintf(fp, "</title>\n<link rel=\"icon\" href=\"%sfavicon.ico\" />\n", relpath);
+	fprintf(fp, "</title>\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"../%slogo.svg\" />\n", relpath);
+	fprintf(fp, "<link rel=\"alternate icon\" href=\"%sfavicon.ico\" />\n", relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
 	fputs("</head>\n<body id=\"home\">\n<h1>", fp);
 	xmlencode(fp, description, strlen(description));

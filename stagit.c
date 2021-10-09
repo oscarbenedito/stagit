@@ -496,8 +496,8 @@ writeheader(FILE *fp, const char *title)
 	if (description[0])
 		fputs(" - ", fp);
 	xmlencode(fp, description, strlen(description));
-	fprintf(fp, "</title>\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"../%slogo.svg\"/>\n", relpath);
-	fprintf(fp, "<link rel=\"alternate icon\" href=\"../%sfavicon.ico\"/>\n", relpath);
+	fprintf(fp, "</title>\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"../%slogo.svg\" />\n", relpath);
+	fprintf(fp, "<link rel=\"alternate icon\" href=\"../%sfavicon.ico\" />\n", relpath);
 	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed\" href=\"%satom.xml\" />\n",
 	        name, relpath);
 	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed (tags)\" href=\"%stags.xml\" />\n",
