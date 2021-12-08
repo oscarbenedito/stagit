@@ -1,8 +1,8 @@
 stagit
 ======
 
-Personal fork of static git page generator. It generates static HTML pages for a
-git repository.
+Personal fork of [stagit](https://git.codemadness.org/stagit/), a static git
+page generator. It generates static HTML pages for a git repository.
 
 This fork uses [md4c](https://github.com/mity/md4c) to convert the README
 markdown into HTML and then shows it in an about page for each repository, this
