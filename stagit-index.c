@@ -29,6 +29,28 @@ joinpath(char *buf, size_t bufsiz, const char *path, const char *path2)
 			path, path[0] && path[strlen(path) - 1] != '/' ? "/" : "", path2);
 }
 
+/* Percent-encode, see RFC3986 section 2.1. */
+void
+percentencode(FILE *fp, const char *s, size_t len)
+{
+	static char tab[] = "0123456789ABCDEF";
+	unsigned char uc;
+	size_t i;
+
+	for (i = 0; *s && i < len; s++, i++) {
+		uc = *s;
+		/* NOTE: do not encode '/' for paths */
+		if (uc < '/' || uc >= 127 || (uc >= ':' && uc <= '@') ||
+		    uc == '[' || uc == ']') {
+			putc('%', fp);
+			putc(tab[(uc >> 4) & 0x0f], fp);
+			putc(tab[uc & 0x0f], fp);
+		} else {
+			putc(uc, fp);
+		}
+	}
+}
+
 /* Escape characters below as HTML 2.0 / XML 1.0. */
 void
 xmlencode(FILE *fp, const char *s, size_t len)
@@ -122,7 +144,7 @@ writelog(FILE *fp)
 			*p = '\0';
 
 	fputs("<tr class=\"repo\"><td><a href=\"", fp);
-	xmlencode(fp, stripped_name, strlen(stripped_name));
+	percentencode(fp, stripped_name, strlen(stripped_name));
 	fputs("/\">", fp);
 	xmlencode(fp, stripped_name, strlen(stripped_name));
 	fputs("</a></td><td>", fp);

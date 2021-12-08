@@ -90,7 +90,7 @@ Script:
 	}'
 
 
-Set clone url for a directory of repos
+Set clone URL for a directory of repos
 --------------------------------------
 
 	#!/bin/sh

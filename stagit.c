@@ -74,7 +74,7 @@ static char *readmefiles[] = { "HEAD:README", "HEAD:README.md" };
 static char *readme;
 static char *contributefiles[] = { "HEAD:CONTRIBUTING", "HEAD:CONTRIBUTING.md" };
 static char *contribute;
-static long long nlogcommits = -1; /* < 0 indicates not used */
+static long long nlogcommits = -1; /* -1 indicates not used */
 
 /* cache */
 static git_oid lastoid;
@@ -362,6 +362,28 @@ efopen(const char *filename, const char *flags)
 	return fp;
 }
 
+/* Percent-encode, see RFC3986 section 2.1. */
+void
+percentencode(FILE *fp, const char *s, size_t len)
+{
+	static char tab[] = "0123456789ABCDEF";
+	unsigned char uc;
+	size_t i;
+
+	for (i = 0; *s && i < len; s++, i++) {
+		uc = *s;
+		/* NOTE: do not encode '/' for paths */
+		if (uc < '/' || uc >= 127 || (uc >= ':' && uc <= '@') ||
+		    uc == '[' || uc == ']') {
+			putc('%', fp);
+			putc(tab[(uc >> 4) & 0x0f], fp);
+			putc(tab[uc & 0x0f], fp);
+		} else {
+			putc(uc, fp);
+		}
+	}
+}
+
 /* Escape characters below as HTML 2.0 / XML 1.0. */
 void
 xmlencode(FILE *fp, const char *s, size_t len)
@@ -498,10 +520,11 @@ writeheader(FILE *fp, const char *title)
 	xmlencode(fp, description, strlen(description));
 	fprintf(fp, "</title>\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"../%slogo.svg\" />\n", relpath);
 	fprintf(fp, "<link rel=\"alternate icon\" href=\"../%sfavicon.ico\" />\n", relpath);
-	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed\" href=\"%satom.xml\" />\n",
-	        name, relpath);
-	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed (tags)\" href=\"%stags.xml\" />\n",
-	        name, relpath);
+	fputs("<link rel=\"alternate\" type=\"application/atom+xml\" title=\"", fp);
+	xmlencode(fp, name, strlen(name));
+	fprintf(fp, " Atom Feed\" href=\"%satom.xml\" />\n", relpath);
+	fputs("<link rel=\"alternate\" type=\"application/atom+xml\" title=\"", fp);
+	fprintf(fp, " Atom Feed (tags)\" href=\"%stags.xml\" />\n", relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"../%sstyle.css\" />\n", relpath);
 	fputs("</head>\n<body>\n<div id=\"head\"><table><tr><td>", fp);
 	fprintf(fp, "<a class=\"logo\" href=\"../%s\"><img src=\"../%slogo.svg\" alt=\"\" width=\"32\" height=\"32\" /></a>",
@@ -513,7 +536,7 @@ writeheader(FILE *fp, const char *title)
 	fputs("</span>\n", fp);
 	if (cloneurl[0]) {
 		fputs("<p class=\"url\">git clone <a href=\"", fp);
-		xmlencode(fp, cloneurl, strlen(cloneurl));
+		xmlencode(fp, cloneurl, strlen(cloneurl)); /* not percent-encoded */
 		fputs("\">", fp);
 		xmlencode(fp, cloneurl, strlen(cloneurl));
 		fputs("</a></p>\n", fp);
@@ -558,14 +581,15 @@ writeblobhtml(FILE *fp, const git_blob *blob)
 				continue;
 			n++;
 			fprintf(fp, nfmt, n, n, n);
-			xmlencode(fp, &s[prev], i - prev + 1);
+			xmlencodeline(fp, &s[prev], i - prev + 1);
+			putc('\n', fp);
 			prev = i + 1;
 		}
 		/* trailing data */
 		if ((len - prev) > 0) {
 			n++;
 			fprintf(fp, nfmt, n, n, n);
-			xmlencode(fp, &s[prev], len - prev);
+			xmlencodeline(fp, &s[prev], len - prev);
 		}
 	}
 
@@ -588,7 +612,7 @@ printcommit(FILE *fp, struct commitinfo *ci)
 		fputs("<b>Author:</b> ", fp);
 		xmlencode(fp, ci->author->name, strlen(ci->author->name));
 		fputs(" &lt;<a href=\"mailto:", fp);
-		xmlencode(fp, ci->author->email, strlen(ci->author->email));
+		xmlencode(fp, ci->author->email, strlen(ci->author->email)); /* not percent-encoded */
 		fputs("\">", fp);
 		xmlencode(fp, ci->author->email, strlen(ci->author->email));
 		fputs("</a>&gt;\n<b>Date:</b>   ", fp);
@@ -683,11 +707,11 @@ printshowfile(FILE *fp, struct commitinfo *ci)
 		patch = ci->deltas[i]->patch;
 		delta = git_patch_get_delta(patch);
 		fprintf(fp, "<b>diff --git a/<a id=\"h%zu\" href=\"%sfile/", i, relpath);
-		xmlencode(fp, delta->old_file.path, strlen(delta->old_file.path));
+		percentencode(fp, delta->old_file.path, strlen(delta->old_file.path));
 		fputs(".html\">", fp);
 		xmlencode(fp, delta->old_file.path, strlen(delta->old_file.path));
 		fprintf(fp, "</a> b/<a href=\"%sfile/", relpath);
-		xmlencode(fp, delta->new_file.path, strlen(delta->new_file.path));
+		percentencode(fp, delta->new_file.path, strlen(delta->new_file.path));
 		fprintf(fp, ".html\">");
 		xmlencode(fp, delta->new_file.path, strlen(delta->new_file.path));
 		fprintf(fp, "</a></b>\n");
@@ -759,6 +783,7 @@ writelog(FILE *fp, const git_oid *oid)
 	git_oid id;
 	char path[PATH_MAX], oidstr[GIT_OID_HEXSZ + 1];
 	FILE *fpfile;
+	size_t remcommits = 0;
 	int r;
 
 	git_revwalk_new(&w, repo);
@@ -778,8 +803,11 @@ writelog(FILE *fp, const git_oid *oid)
 
 		/* optimization: if there are no log lines to write and
 		   the commit file already exists: skip the diffstat */
-		if (!nlogcommits && !r)
-			continue;
+		if (!nlogcommits) {
+			remcommits++;
+			if (!r)
+				continue;
+		}
 
 		if (!(ci = commitinfo_getbyoid(&id)))
 			break;
@@ -787,15 +815,10 @@ writelog(FILE *fp, const git_oid *oid)
 		if (commitinfo_getstats(ci) == -1)
 			goto err;
 
-		if (nlogcommits < 0) {
+		if (nlogcommits != 0) {
 			writelogline(fp, ci);
-		} else if (nlogcommits > 0) {
-			writelogline(fp, ci);
-			nlogcommits--;
-			if (!nlogcommits && ci->parentoid[0])
-				fputs("<tr><td></td><td colspan=\"5\">"
-				      "More commits remaining [...]</td>"
-				      "</tr>\n", fp);
+			if (nlogcommits > 0)
+				nlogcommits--;
 		}
 
 		if (cachefile)
@@ -816,6 +839,12 @@ err:
 		commitinfo_free(ci);
 	}
 	git_revwalk_free(w);
+
+	if (nlogcommits == 0 && remcommits != 0) {
+		fprintf(fp, "<tr><td></td><td colspan=\"5\">"
+		        "%zu more commits remaining, fetch the repository"
+		        "</td></tr>\n", remcommits);
+	}
 
 	relpath = "";
 
@@ -1135,7 +1164,7 @@ writefilestree(FILE *fp, git_tree *tree, const char *path)
 			if (git_object_type(obj) == GIT_OBJ_TREE)
 				fputs("class=\"dir\" ", fp);
 			fprintf(fp, "href=\"%s", relpath);
-			xmlencode(fp, filepath, strlen(filepath));
+			percentencode(fp, filepath, strlen(filepath));
 			fputs("\">", fp);
 			xmlencode(fp, entryname, strlen(entryname));
 			fputs("</a></td><td class=\"num\" align=\"right\">", fp);

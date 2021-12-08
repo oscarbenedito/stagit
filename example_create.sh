@@ -7,7 +7,7 @@
 #   is included.
 # - modify the categories in the for loop with your own.
 #
-# - write clone url, for example "git://git.codemadness.org/dir" to the "url"
+# - write clone URL, for example "git://git.codemadness.org/dir" to the "url"
 #   file for each repo.
 # - write owner of repo to the "owner" file.
 # - write description in "description" file.
