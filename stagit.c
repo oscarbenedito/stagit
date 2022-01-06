@@ -556,6 +556,8 @@ writeheader(FILE *fp, const char *title)
 	if (contribute)
 		fprintf(fp, " | <a href=\"%sfile/%s.html\">Contribute</a>",
 		        relpath, contribute);
+	else
+		fprintf(fp, " | <a href=\"../%s#contribute\">Contribute</a>", relpath);
 	fputs("</p>\n</div>\n<hr/>\n<div id=\"content\">\n", fp);
 }
 
