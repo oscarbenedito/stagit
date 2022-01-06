@@ -6,90 +6,90 @@
 # NOTE, things to do manually (once) before running this script:
 # - modify the categories in the for loop with your own.
 #
-# usage: $0 [name]
+# usage: sh example_post-receive.sh [reponame]
 #
-# if name is not set the basename of the current directory is used,
+# if reponame is not set the basename of the current directory is used,
 # this is the directory of the repo when called from the post-receive script.
 
 # NOTE: needs to be set for correct locale (expects UTF-8) otherwise the
 #       default is LC_CTYPE="POSIX".
 export LC_CTYPE="en_US.UTF-8"
 
-name="$1"
-if test "${name}" = ""; then
-    name="$(basename "$(pwd)")"
-fi
-
 # paths must be absolute
 reposdir="/srv/git"
-dir="${reposdir}/${name}"
-destdir="/srv/git/html"
+webdir="/srv/git/html"
 cachefile=".stagit-build-cache"
 
-if ! test -d "${dir}"; then
-    echo "${dir} does not exist" >&2
-    exit 1
-fi
-cd "${dir}" || exit 1
-
-[ -f "${dir}/git-daemon-export-ok" ] || exit 0
-
-# detect git push -f
-force=0
-while read -r old new ref; do
-    test "${old}" = "0000000000000000000000000000000000000000" && continue
-    test "${new}" = "0000000000000000000000000000000000000000" && continue
-
-    hasrevs="$(git rev-list "${old}" "^${new}" | sed 1q)"
-    if test -n "${hasrevs}"; then
-        force="1"
-        break
+is_public_and_listed() {
+    if [ ! -f "$1/git-daemon-export-ok" ] || [ ! -f "$1/category" ]; then
+        return 1
     fi
-done
+    return 0
+}
 
-# strip .git suffix
-r="$(basename "${name}")"
-d="$(basename "${name}" ".git")"
-printf "[%s] stagit HTML pages... " "${d}"
+is_forced_update() {
+    while read -r old new ref; do
+        test "$old" = "0000000000000000000000000000000000000000" && continue
+        test "$new" = "0000000000000000000000000000000000000000" && continue
 
-# remove folder if forced update
-[ "${force}" = "1" ] && printf "forced update... " && rm -rf "${destdir}/${d}"
-
-mkdir -p "${destdir}/${d}"
-cd "${destdir}/${d}" || exit 1
-
-# make pages
-stagit -c "${cachefile}" -u "https://git.oscarbenedito.com/$d/" "${reposdir}/${r}"
-[ -f "about.html" ] \
-    && ln -sf "about.html" "index.html" \
-    || ln -sf "log.html" "index.html"
-ln -sfT "${dir}" ".git"
-
-# generate index arguments
-args=""
-for cat in "Projects" "Personal setup" "Miscellanea"; do
-    args="$args -c \"$cat\""
-    for dir in "$reposdir/"*.git/; do
-        dir="${dir%/}"
-        [ ! -f "$dir/git-daemon-export-ok" ] && continue
-        if [ -f "$dir/category" ]; then
-            [ "$(cat "$dir/category")" = "$cat" ] && args="$args $dir"
-        else
-            stagit_uncat="1"
+        hasrevs="$(git rev-list "$old" "^$new" | sed 1q)"
+        if test -n "$hasrevs"; then
+            return 0
         fi
     done
-done
+    return 1
+}
 
-if [ -n "$stagit_uncat" ]; then
-    args="$args -c Uncategorized"
-    for dir in "$reposdir/"*.git/; do
-        dir="${dir%/}"
-        [ -f "$dir/git-daemon-export-ok" ] && [ ! -f "$dir/category" ] && \
-            args="$args $dir"
+make_repo_web() {
+    reponame="$(basename "$1" ".git")"
+    printf "[%s] stagit HTML pages... " "$reponame"
+
+    # if forced update, remove directory and cache file
+    is_forced_update && printf "forced update... " && rm -rf "$webdir/$reponame"
+
+    mkdir -p "$webdir/$reponame"
+    cd "$webdir/$reponame" || return 1
+
+    # make pages
+    stagit -c "$cachefile" -u "https://git.oscarbenedito.com/$reponame/" "$1"
+
+    # symlinks
+    [ -f "about.html" ] \
+        && ln -sf "about.html" "index.html" \
+        || ln -sf "log.html" "index.html"
+    ln -sfT "$1" ".git"
+
+    echo "done"
+}
+
+make_stagit_index() {
+    printf "Generating stagit index... "
+
+    # generate index arguments
+    args=""
+    for category in "Projects" "Personal setup" "Miscellanea"; do
+        args="$args -c \"$category\""
+        for repo in "$reposdir/"*.git/; do
+            repo="${repo%/}"
+            is_public_and_listed "$repo" || continue
+            [ "$(cat "$repo/category")" = "$category" ] && args="$args $repo"
+        done
     done
+
+    # make index
+    echo "$args" | xargs stagit-index > "$webdir/index.html"
+
+    echo "done"
+}
+
+if [ "$1" = "" ]; then
+    repo="$(pwd)"
+else
+    repo="$reposdir/$1"
 fi
 
-# make index
-echo "$args" | xargs stagit-index > "${destdir}/index.html"
+cd "$repo" || exit 1
+is_public_and_listed "$repo" || exit 0
 
-echo "done"
+make_repo_web "$repo"
+make_stagit_index
