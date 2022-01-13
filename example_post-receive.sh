@@ -57,7 +57,6 @@ make_repo_web() {
     [ -f "about.html" ] \
         && ln -sf "about.html" "index.html" \
         || ln -sf "log.html" "index.html"
-    ln -sfT "$1" ".git"
 
     echo "done"
 }
