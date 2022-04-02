@@ -1,12 +1,3 @@
-:root {
-	--diff-green: #181;
-	--diff-red: #e02;
-	--links: #00c;
-	--border: #d2d2d2;
-	--gray: #777;
-	--hover-bg: #eee;
-}
-
 body {
 	color: #000;
 	background-color: #fff;
@@ -39,13 +30,13 @@ body {
 
 pre:not(#about) {
 	overflow-x: auto;
-	border: 1px solid var(--border);
+	border: 1px solid #d2d2d2;
 	border-radius: 4px;
 	padding: 10px;
 }
 
 a {
-	color: var(--links);
+	color: #00c;
 }
 
 #head table {
@@ -99,11 +90,11 @@ h1, h2, h3, h4, h5, h6 {
 	font-size: 1.25em;
 }
 
-img, h1, h2 {
+img, svg, h1, h2 {
 	vertical-align: middle;
 }
 
-img {
+img, svg {
 	border: 0;
 }
 
@@ -119,7 +110,7 @@ a.line {
 }
 
 #blob a {
-	color: var(--gray);
+	color: #777;
 }
 
 #blob a:hover {
@@ -145,7 +136,7 @@ table td {
 #index tr:hover td,
 #log tr:hover td,
 #files tr:hover td {
-	background-color: var(--hover-bg);
+	background-color: #eee;
 }
 
 #index tr td:nth-child(2),
@@ -160,12 +151,12 @@ td.num {
 }
 
 .desc {
-	color: var(--gray);
+	color: #777;
 }
 
 hr {
 	border: 0;
-	border-top: 1px solid var(--gray);
+	border-top: 1px solid #777;
 	height: 1px;
 }
 
@@ -176,13 +167,13 @@ pre {
 .A,
 span.i,
 pre a.i {
-	color: var(--diff-green);
+	color: #181;
 }
 
 .D,
 span.d,
 pre a.d {
-	color: var(--diff-red);
+	color: #e02;
 }
 
 pre a.h:hover,
@@ -194,12 +185,13 @@ pre a.d:hover {
 .md table {
 	border-collapse: collapse;
 	margin: 1em 1em;
-	border: 1px solid var(--border);
+	border: 1px solid #d2d2d2;
 }
+
 .md table td,
 .md table th {
 	padding: 0.25em 1em;
-	border: 1px solid var(--border);
+	border: 1px solid #d2d2d2;
 }
 
 #index .cat td {
@@ -208,17 +200,18 @@ pre a.d:hover {
 
 #index .repo td:first-child {
 	padding-left: 1.5em;
+}
 
 @media (prefers-color-scheme: dark) {
 	body {
-		background-color: #000;
-		color: #bdbdbd;
+		background-color: #111;
+		color: #ccc;
 	}
 	hr {
-		border-color: #222;
+		border-color: #555;
 	}
 	a {
-		color: #56c8ff;
+		color: #4d80b3;
 	}
 	a:target {
 		background-color: #222;
@@ -236,17 +229,17 @@ pre a.d:hover {
 		color: #56c8ff;
 	}
 	pre a.h {
-		color: #00cdcd;
+		color: #0bb;
 	}
 	.A,
 	span.i,
 	pre a.i {
-		color: #00cd00;
+		color: #1a1;
 	}
 	.D,
 	span.d,
 	pre a.d {
-		color: #cd0000;
+		color: #e44;
 	}
 	#branches tr:hover td,
 	#tags tr:hover td,
@@ -254,5 +247,11 @@ pre a.d:hover {
 	#log tr:hover td,
 	#files tr:hover td {
 		background-color: #111;
+	}
+	pre:not(#about),
+	.md table,
+	.md table td,
+	.md table th {
+		border-color: #555;
 	}
 }
