@@ -17,6 +17,16 @@ static char *name = "";
 static char owner[255];
 static char category[255];
 
+/* Handle read or write errors for a FILE * stream */
+void
+checkfileerror(FILE *fp, const char *name, int mode)
+{
+	if (mode == 'r' && ferror(fp))
+		errx(1, "read error: %s", name);
+	else if (mode == 'w' && (fflush(fp) || ferror(fp)))
+		errx(1, "write error: %s", name);
+}
+
 void
 joinpath(char *buf, size_t bufsiz, const char *path, const char *path2)
 {
@@ -39,8 +49,8 @@ percentencode(FILE *fp, const char *s, size_t len)
 
 	for (i = 0; *s && i < len; s++, i++) {
 		uc = *s;
-		/* NOTE: do not encode '/' for paths */
-		if (uc < '/' || uc >= 127 || (uc >= ':' && uc <= '@') ||
+		/* NOTE: do not encode '/' for paths or ",-." */
+		if (uc < ',' || uc >= 127 || (uc >= ':' && uc <= '@') ||
 		    uc == '[' || uc == ']') {
 			putc('%', fp);
 			putc(tab[(uc >> 4) & 0x0f], fp);
@@ -175,7 +185,11 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* do not search outside the git repository:
+	   GIT_CONFIG_LEVEL_APP is the highest level currently */
 	git_libgit2_init();
+	for (i = 1; i <= GIT_CONFIG_LEVEL_APP; i++)
+		git_libgit2_opts(GIT_OPT_SET_SEARCH_PATH, i, "");
 
 #ifdef __OpenBSD__
 	if (pledge("stdio rpath", NULL) == -1)
@@ -226,6 +240,7 @@ main(int argc, char *argv[])
 			tmp = strlen(description);
 			if (tmp > 0 && description[tmp-1] == '\n')
 				description[tmp-1] = '\0';
+			checkfileerror(fp, "description", 'r');
 			fclose(fp);
 		}
 
@@ -239,8 +254,9 @@ main(int argc, char *argv[])
 		if (fp) {
 			if (!fgets(owner, sizeof(owner), fp))
 				owner[0] = '\0';
-			owner[strcspn(owner, "\n")] = '\0';
+			checkfileerror(fp, "owner", 'r');
 			fclose(fp);
+			owner[strcspn(owner, "\n")] = '\0';
 		}
 		writelog(stdout);
 	}
@@ -249,6 +265,8 @@ main(int argc, char *argv[])
 	/* cleanup */
 	git_repository_free(repo);
 	git_libgit2_shutdown();
+
+	checkfileerror(stdout, "<stdout>", 'w');
 
 	return ret;
 }

@@ -82,6 +82,16 @@ static char lastoidstr[GIT_OID_HEXSZ + 2]; /* id + newline + NUL byte */
 static FILE *rcachefp, *wcachefp;
 static const char *cachefile;
 
+/* Handle read or write errors for a FILE * stream */
+void
+checkfileerror(FILE *fp, const char *name, int mode)
+{
+	if (mode == 'r' && ferror(fp))
+		errx(1, "read error: %s", name);
+	else if (mode == 'w' && (fflush(fp) || ferror(fp)))
+		errx(1, "write error: %s", name);
+}
+
 void
 joinpath(char *buf, size_t bufsiz, const char *path, const char *path2)
 {
@@ -372,8 +382,8 @@ percentencode(FILE *fp, const char *s, size_t len)
 
 	for (i = 0; *s && i < len; s++, i++) {
 		uc = *s;
-		/* NOTE: do not encode '/' for paths */
-		if (uc < '/' || uc >= 127 || (uc >= ':' && uc <= '@') ||
+		/* NOTE: do not encode '/' for paths or ",-." */
+		if (uc < ',' || uc >= 127 || (uc >= ':' && uc <= '@') ||
 		    uc == '[' || uc == ']') {
 			putc('%', fp);
 			putc(tab[(uc >> 4) & 0x0f], fp);
@@ -835,6 +845,7 @@ writelog(FILE *fp, const git_oid *oid)
 			printshowfile(fpfile, ci);
 			fputs("</pre>\n", fpfile);
 			writefooter(fpfile);
+			checkfileerror(fpfile, path, 'w');
 			fclose(fpfile);
 		}
 err:
@@ -1007,14 +1018,13 @@ writeblob(git_object *obj, const char *fpath, const char *rpath, const char *fil
 	fprintf(fp, " (%zuB)", filesize);
 	fprintf(fp, " - <a href=\"%s%s\">raw</a></p><hr/>", relpath, rpath);
 
-	if (git_blob_is_binary((git_blob *)obj)) {
+	if (git_blob_is_binary((git_blob *)obj))
 		fputs("<p>Binary file.</p>\n", fp);
-	} else {
+	else
 		lc = writeblobhtml(fp, (git_blob *)obj);
-		if (ferror(fp))
-			err(1, "fwrite");
-	}
+
 	writefooter(fp);
+	checkfileerror(fp, fpath, 'w');
 	fclose(fp);
 
 	relpath = oldrelpath;
@@ -1321,7 +1331,11 @@ main(int argc, char *argv[])
 	if (!realpath(repodir, repodirabs))
 		err(1, "realpath");
 
+	/* do not search outside the git repository:
+	   GIT_CONFIG_LEVEL_APP is the highest level currently */
 	git_libgit2_init();
+	for (i = 1; i <= GIT_CONFIG_LEVEL_APP; i++)
+		git_libgit2_opts(GIT_OPT_SET_SEARCH_PATH, i, "");
 
 #ifdef __OpenBSD__
 	if (unveil(repodir, "r") == -1)
@@ -1373,6 +1387,7 @@ main(int argc, char *argv[])
 	if (fpread) {
 		if (!fgets(description, sizeof(description), fpread))
 			description[0] = '\0';
+		checkfileerror(fpread, path, 'r');
 		fclose(fpread);
 	}
 
@@ -1385,8 +1400,9 @@ main(int argc, char *argv[])
 	if (fpread) {
 		if (!fgets(cloneurl, sizeof(cloneurl), fpread))
 			cloneurl[0] = '\0';
-		cloneurl[strcspn(cloneurl, "\n")] = '\0';
+		checkfileerror(fpread, path, 'r');
 		fclose(fpread);
+		cloneurl[strcspn(cloneurl, "\n")] = '\0';
 	}
 
 	/* check CONTRIBUTING */
@@ -1478,13 +1494,15 @@ main(int argc, char *argv[])
 			while (!feof(rcachefp)) {
 				n = fread(buf, 1, sizeof(buf), rcachefp);
 				if (ferror(rcachefp))
-					err(1, "fread");
+					break;
 				if (fwrite(buf, 1, n, fp) != n ||
 				    fwrite(buf, 1, n, wcachefp) != n)
-					err(1, "fwrite");
+					    break;
 			}
+			checkfileerror(rcachefp, cachefile, 'r');
 			fclose(rcachefp);
 		}
+		checkfileerror(wcachefp, tmppath, 'w');
 		fclose(wcachefp);
 	} else {
 		if (head)
@@ -1493,6 +1511,7 @@ main(int argc, char *argv[])
 
 	fputs("</tbody></table>", fp);
 	writefooter(fp);
+	checkfileerror(fp, "log.html", 'w');
 	fclose(fp);
 
 	/* files for HEAD */
@@ -1501,6 +1520,7 @@ main(int argc, char *argv[])
 	if (head)
 		writefiles(fp, head);
 	writefooter(fp);
+	checkfileerror(fp, "files.html", 'w');
 	fclose(fp);
 
 	/* summary page with branches and tags */
@@ -1508,16 +1528,19 @@ main(int argc, char *argv[])
 	writeheader(fp, "Refs");
 	writerefs(fp);
 	writefooter(fp);
+	checkfileerror(fp, "refs.html", 'w');
 	fclose(fp);
 
 	/* Atom feed */
 	fp = efopen("atom.xml", "w");
 	writeatom(fp, 1);
+	checkfileerror(fp, "atom.xml", 'w');
 	fclose(fp);
 
 	/* Atom feed for tags / releases */
 	fp = efopen("tags.xml", "w");
 	writeatom(fp, 0);
+	checkfileerror(fp, "tags.xml", 'w');
 	fclose(fp);
 
 	/* rename new cache file on success */
