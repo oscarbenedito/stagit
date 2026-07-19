@@ -66,7 +66,7 @@ make_stagit_index() {
 
     # generate index arguments
     args=""
-    for category in "Projects" "Personal setup" "Miscellanea"; do
+    for category in "Projects" "Archived"; do
         args="$args -c \"$category\""
         for repo in "$reposdir/"*.git/; do
             repo="${repo%/}"
