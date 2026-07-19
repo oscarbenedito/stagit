@@ -21,7 +21,7 @@
 reposdir="/srv/git"
 webdir="/srv/git/html"
 cachefile=".stagit-build-cache"
-assetdir="/usr/local/share/doc/stagit"
+assetdir="/run/current-system/sw/share/doc/stagit"
 
 is_public_and_listed() {
     if [ ! -f "$1/git-daemon-export-ok" ] || [ ! -f "$1/category" ]; then
